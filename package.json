@@ -1,0 +1,8 @@
+{
+  "name": "brand-trained-engine",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ]
+}
