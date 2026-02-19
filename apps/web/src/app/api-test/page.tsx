@@ -6,7 +6,8 @@ export default function ApiTest() {
   const [status, setStatus] = useState("Loading...");
 
   useEffect(() => {
-    fetch("http://localhost:3001/health")
+    const base = process.env.NEXT_PUBLIC_API_BASE_URL || "";
+    fetch(`${base}/health`)
       .then((res) => res.json())
       .then((data) => setStatus(JSON.stringify(data)))
       .catch(() => setStatus("Error connecting to API"));
