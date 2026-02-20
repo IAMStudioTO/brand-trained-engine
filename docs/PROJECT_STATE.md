@@ -1,10 +1,10 @@
 # Brand-Trained Engine — PROJECT STATE (auto-generated)
 
-Last update (UTC): 2026-02-20 13:29:27Z
+Last update (UTC): 2026-02-20 14:14:51Z
 
 ## Repository
 Branch: main
-HEAD: 7d68530
+HEAD: e2587b7
 
 ## Live URLs
 Frontend (Vercel):
