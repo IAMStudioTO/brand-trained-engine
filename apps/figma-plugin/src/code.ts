@@ -1,30 +1,35 @@
-// Brand-Trained Engine — Export (Serio)
-// Source file: apps/figma-plugin/src/code.ts
-// Build generates dist/code.js (JS-only)
-
 figma.showUI(__html__, { width: 360, height: 310 });
 
+function safeString(v: any, fallback: string): string {
+  if (v === null || v === undefined) return fallback;
+  const s = String(v);
+  return s ? s : fallback;
+}
+
 async function getFileNameSafe(): Promise<string> {
-  // Figma plugin API non espone sempre il nome file in modo affidabile
-  return "Figma File";
+  // In molti casi figma.root.name è il nome del file
+  try {
+    return safeString((figma as any).root && (figma as any).root.name, "Figma File");
+  } catch (e) {
+    return "Figma File";
+  }
 }
 
 function colorToHex(c: RGB): string {
   const r = Math.round(c.r * 255).toString(16).padStart(2, "0");
   const g = Math.round(c.g * 255).toString(16).padStart(2, "0");
   const b = Math.round(c.b * 255).toString(16).padStart(2, "0");
-  return `#${r}${g}${b}`;
+  return "#" + r + g + b;
 }
 
 function serializePaint(p: Paint): any {
   if (p.type === "SOLID") {
-    const solid = p as SolidPaint;
     return {
       type: "SOLID",
-      color: colorToHex(solid.color),
-      opacity: typeof solid.opacity === "number" ? solid.opacity : 1,
-      visible: solid.visible !== false,
-      blendMode: (solid.blendMode as any) || "NORMAL",
+      color: colorToHex(p.color),
+      opacity: p.opacity || 1,
+      visible: p.visible !== false,
+      blendMode: (p as any).blendMode || "NORMAL",
     };
   }
 
@@ -34,203 +39,157 @@ function serializePaint(p: Paint): any {
     p.type === "GRADIENT_ANGULAR" ||
     p.type === "GRADIENT_DIAMOND"
   ) {
-    const g = p as GradientPaint;
+    const stops = (p as any).gradientStops && Array.isArray((p as any).gradientStops) ? (p as any).gradientStops : [];
     return {
-      type: g.type,
-      visible: g.visible !== false,
-      opacity: typeof g.opacity === "number" ? g.opacity : 1,
-      blendMode: (g.blendMode as any) || "NORMAL",
-      gradientStops: (g.gradientStops || []).map((s) => ({
+      type: p.type,
+      visible: p.visible !== false,
+      opacity: (p as any).opacity || 1,
+      blendMode: (p as any).blendMode || "NORMAL",
+      gradientStops: stops.map((s: any) => ({
         position: s.position,
         color: colorToHex(s.color),
-        opacity: typeof s.color.a === "number" ? s.color.a : 1,
+        opacity: (s.color && s.color.a) ? s.color.a : 1,
       })),
-      gradientTransform: g.gradientTransform || null,
+      gradientTransform: (p as any).gradientTransform || null,
     };
   }
 
   if (p.type === "IMAGE") {
-    const img = p as ImagePaint;
     return {
       type: "IMAGE",
-      visible: img.visible !== false,
-      opacity: typeof img.opacity === "number" ? img.opacity : 1,
-      blendMode: (img.blendMode as any) || "NORMAL",
-      scaleMode: img.scaleMode,
-      imageHash: img.imageHash || null,
-      rotation: typeof img.rotation === "number" ? img.rotation : 0,
-      filters: img.filters || null,
+      visible: p.visible !== false,
+      opacity: (p as any).opacity || 1,
+      blendMode: (p as any).blendMode || "NORMAL",
+      scaleMode: (p as any).scaleMode,
+      imageHash: (p as any).imageHash || null,
+      rotation: (p as any).rotation || 0,
+      filters: (p as any).filters || null,
     };
   }
 
   return { type: (p as any).type };
 }
 
-function serializeEffect(e: Effect): any {
-  const anyE = e as any;
+function serializeEffect(e: any): any {
+  let colorHex: string | undefined = undefined;
+  let colorOpacity: number | undefined = undefined;
+
+  if (e && e.color) {
+    try {
+      colorHex = colorToHex(e.color);
+      colorOpacity = typeof e.color.a === "number" ? e.color.a : 1;
+    } catch (err) {}
+  }
+
   return {
     type: e.type,
-    visible: (e as any).visible !== false,
-    radius: typeof anyE.radius === "number" ? anyE.radius : undefined,
-    color: anyE.color ? colorToHex(anyE.color) : undefined,
-    opacity: anyE.color && typeof anyE.color.a === "number" ? anyE.color.a : undefined,
-    offset: anyE.offset,
-    spread: typeof anyE.spread === "number" ? anyE.spread : undefined,
-    blendMode: anyE.blendMode,
+    visible: e.visible !== false,
+    radius: typeof e.radius === "number" ? e.radius : undefined,
+    color: colorHex,
+    opacity: colorOpacity,
+    offset: e.offset || undefined,
+    spread: typeof e.spread === "number" ? e.spread : undefined,
+    blendMode: e.blendMode || undefined,
   };
 }
 
 function commonNodeProps(node: SceneNode): any {
-  const anyNode = node as any;
-
   const base: any = {
     id: node.id,
     name: node.name,
     type: node.type,
     visible: node.visible,
     locked: node.locked,
-    opacity: typeof anyNode.opacity === "number" ? anyNode.opacity : 1,
-    blendMode: anyNode.blendMode || "NORMAL",
+    opacity: ("opacity" in node) ? (node as any).opacity : 1,
+    blendMode: ("blendMode" in node) ? (node as any).blendMode : "NORMAL",
   };
 
-  if (typeof anyNode.x === "number") base.x = anyNode.x;
-  if (typeof anyNode.y === "number") base.y = anyNode.y;
-  if (typeof anyNode.width === "number") base.width = anyNode.width;
-  if (typeof anyNode.height === "number") base.height = anyNode.height;
-  if (typeof anyNode.rotation === "number") base.rotation = anyNode.rotation;
+  if ("x" in node) base.x = (node as any).x;
+  if ("y" in node) base.y = (node as any).y;
+  if ("width" in node) base.width = (node as any).width;
+  if ("height" in node) base.height = (node as any).height;
+  if ("rotation" in node) base.rotation = (node as any).rotation;
 
-  if (anyNode.constraints) base.constraints = anyNode.constraints;
+  if ("constraints" in node) base.constraints = (node as any).constraints;
 
-  if (typeof anyNode.cornerRadius === "number") base.cornerRadius = anyNode.cornerRadius;
-  if (typeof anyNode.topLeftRadius === "number") {
+  if ("cornerRadius" in node) base.cornerRadius = (node as any).cornerRadius;
+  if ("topLeftRadius" in node) {
     base.cornerRadii = {
-      topLeft: anyNode.topLeftRadius,
-      topRight: anyNode.topRightRadius,
-      bottomLeft: anyNode.bottomLeftRadius,
-      bottomRight: anyNode.bottomRightRadius,
+      topLeft: (node as any).topLeftRadius,
+      topRight: (node as any).topRightRadius,
+      bottomLeft: (node as any).bottomLeftRadius,
+      bottomRight: (node as any).bottomRightRadius,
     };
   }
 
-  // fills / strokes possono essere figma.mixed
-  if ("fills" in anyNode) {
-    const fills = anyNode.fills;
+  if ("fills" in node) {
+    const fills = (node as any).fills;
     if (fills !== figma.mixed && Array.isArray(fills)) base.fills = fills.map(serializePaint);
   }
 
-  if ("strokes" in anyNode) {
-    const strokes = anyNode.strokes;
+  if ("strokes" in node) {
+    const strokes = (node as any).strokes;
     if (strokes !== figma.mixed && Array.isArray(strokes)) base.strokes = strokes.map(serializePaint);
   }
 
-  if (typeof anyNode.strokeWeight === "number") base.strokeWeight = anyNode.strokeWeight;
-  if (anyNode.strokeAlign) base.strokeAlign = anyNode.strokeAlign;
-  if (Array.isArray(anyNode.dashPattern)) base.dashPattern = anyNode.dashPattern;
+  if ("strokeWeight" in node) base.strokeWeight = (node as any).strokeWeight;
+  if ("strokeAlign" in node) base.strokeAlign = (node as any).strokeAlign;
+  if ("dashPattern" in node) base.dashPattern = (node as any).dashPattern;
 
-  if ("effects" in anyNode) {
-    const effects = anyNode.effects;
+  if ("effects" in node) {
+    const effects = (node as any).effects;
     if (effects !== figma.mixed && Array.isArray(effects)) base.effects = effects.map(serializeEffect);
   }
 
-  if ("layoutMode" in anyNode) {
+  if ("layoutMode" in node) {
     base.autoLayout = {
-      layoutMode: anyNode.layoutMode,
-      primaryAxisSizingMode: anyNode.primaryAxisSizingMode,
-      counterAxisSizingMode: anyNode.counterAxisSizingMode,
-      primaryAxisAlignItems: anyNode.primaryAxisAlignItems,
-      counterAxisAlignItems: anyNode.counterAxisAlignItems,
-      paddingLeft: anyNode.paddingLeft,
-      paddingRight: anyNode.paddingRight,
-      paddingTop: anyNode.paddingTop,
-      paddingBottom: anyNode.paddingBottom,
-      itemSpacing: anyNode.itemSpacing,
+      layoutMode: (node as any).layoutMode,
+      primaryAxisSizingMode: (node as any).primaryAxisSizingMode,
+      counterAxisSizingMode: (node as any).counterAxisSizingMode,
+      primaryAxisAlignItems: (node as any).primaryAxisAlignItems,
+      counterAxisAlignItems: (node as any).counterAxisAlignItems,
+      paddingLeft: (node as any).paddingLeft,
+      paddingRight: (node as any).paddingRight,
+      paddingTop: (node as any).paddingTop,
+      paddingBottom: (node as any).paddingBottom,
+      itemSpacing: (node as any).itemSpacing,
     };
   }
 
-  if (typeof anyNode.clipsContent === "boolean") base.clipsContent = anyNode.clipsContent;
+  if ("clipsContent" in node) base.clipsContent = (node as any).clipsContent;
 
   return base;
 }
 
-function textProps(node: TextNode): any {
-  const props: any = {
-    characters: node.characters,
-    textAlignHorizontal: node.textAlignHorizontal,
-    textAlignVertical: node.textAlignVertical,
-    textAutoResize: node.textAutoResize,
-  };
-
-  // possono essere figma.mixed
-  props.fontName = node.fontName === figma.mixed ? null : node.fontName;
-  props.fontSize = node.fontSize === figma.mixed ? null : node.fontSize;
-  props.lineHeight = node.lineHeight === figma.mixed ? null : node.lineHeight;
-  props.letterSpacing = node.letterSpacing === figma.mixed ? null : node.letterSpacing;
-  props.paragraphIndent = node.paragraphIndent === figma.mixed ? null : node.paragraphIndent;
-  props.paragraphSpacing = node.paragraphSpacing === figma.mixed ? null : node.paragraphSpacing;
-
-  return props;
-}
-
-async function collectImageAssetsFromPaints(node: SceneNode, assets: Map<string, any>) {
-  const anyNode = node as any;
-  if (!("fills" in anyNode)) return;
-
-  const fills = anyNode.fills;
-  if (fills === figma.mixed || !Array.isArray(fills)) return;
-
-  for (const p of fills) {
-    if (p.type === "IMAGE" && p.imageHash) {
-      const id = `img_${p.imageHash}`;
-      if (assets.has(id)) continue;
-
-      const img = figma.getImageByHash(p.imageHash);
-      if (!img) continue;
-
-      const bytes = await img.getBytesAsync();
-      const b64 = figma.base64Encode(bytes);
-
-      // Non sempre è PNG, ma per MVP basta (rendering lo gestiremo dopo)
-      assets.set(id, { id, type: "image/png", base64: b64 });
-    }
-  }
-}
-
-async function exportSvgIfVectorLike(node: SceneNode): Promise<string | null> {
-  const vectorTypes = new Set([
-    "VECTOR",
-    "BOOLEAN_OPERATION",
-    "STAR",
-    "LINE",
-    "ELLIPSE",
-    "POLYGON",
-    "RECTANGLE",
-  ]);
-
-  if (!vectorTypes.has(node.type as any)) return null;
-
-  const bytes = await (node as any).exportAsync({ format: "SVG" });
-  const svg = new TextDecoder("utf-8").decode(bytes);
-  return svg;
-}
-
-async function serializeNode(node: SceneNode, assets: Map<string, any>): Promise<any> {
+async function serializeNode(node: SceneNode): Promise<any> {
   const base = commonNodeProps(node);
 
-  await collectImageAssetsFromPaints(node, assets);
-
   if (node.type === "TEXT") {
-    return { ...base, ...textProps(node as TextNode) };
+    const t = node as TextNode;
+
+    const fontName = (t.fontName === figma.mixed) ? null : t.fontName;
+    const fontSize = (t.fontSize === figma.mixed) ? null : t.fontSize;
+    const lineHeight = (t.lineHeight === figma.mixed) ? null : t.lineHeight;
+    const letterSpacing = (t.letterSpacing === figma.mixed) ? null : t.letterSpacing;
+
+    return {
+      ...base,
+      characters: t.characters,
+      textAlignHorizontal: t.textAlignHorizontal,
+      textAlignVertical: t.textAlignVertical,
+      textAutoResize: t.textAutoResize,
+      fontName,
+      fontSize,
+      lineHeight,
+      letterSpacing,
+    };
   }
 
-  const svg = await exportSvgIfVectorLike(node);
-  if (svg) {
-    return { ...base, svg };
-  }
-
-  const anyNode = node as any;
-  if ("children" in anyNode && Array.isArray(anyNode.children)) {
-    const children = [];
-    for (const child of anyNode.children) {
-      children.push(await serializeNode(child, assets));
+  if ("children" in node) {
+    const children: any[] = [];
+    const kids = (node as any).children as SceneNode[];
+    for (let i = 0; i < kids.length; i++) {
+      children.push(await serializeNode(kids[i]));
     }
     return { ...base, children };
   }
@@ -239,7 +198,7 @@ async function serializeNode(node: SceneNode, assets: Map<string, any>): Promise
 }
 
 async function exportPreviewPng(node: SceneNode) {
-  const bytes = await (node as any).exportAsync({
+  const bytes = await node.exportAsync({
     format: "PNG",
     constraint: { type: "SCALE", value: 2 },
   });
@@ -261,7 +220,7 @@ async function postJson(url: string, apiKey: string, body: any) {
   });
 
   const text = await res.text();
-  if (!res.ok) throw new Error(`API ${res.status}: ${text}`);
+  if (!res.ok) throw new Error("API " + res.status + ": " + text);
   return text;
 }
 
@@ -277,11 +236,11 @@ async function postJson(url: string, apiKey: string, body: any) {
   });
 })();
 
-figma.ui.onmessage = async (msg) => {
+figma.ui.onmessage = async (msg: any) => {
   if (!msg || msg.type !== "EXPORT") return;
 
-  const apiBase = String(msg.apiBase || "").trim();
-  const apiKey = String(msg.apiKey || "").trim();
+  const apiBase = safeString(msg.apiBase, "").trim();
+  const apiKey = safeString(msg.apiKey, "").trim();
 
   if (!apiBase) return figma.notify("Inserisci API Base URL");
   if (!apiKey) return figma.notify("Inserisci API Key");
@@ -289,35 +248,34 @@ figma.ui.onmessage = async (msg) => {
   await figma.clientStorage.setAsync("bte_apiBase", apiBase);
   await figma.clientStorage.setAsync("bte_apiKey", apiKey);
 
-  const node = figma.currentPage.selection[0] as SceneNode | undefined;
-  if (!node) return figma.notify("Seleziona un FRAME (consigliato) o un nodo prima di esportare");
+  const node = figma.currentPage.selection && figma.currentPage.selection.length ? figma.currentPage.selection[0] : null;
+  if (!node) return figma.notify("Seleziona un frame o un nodo prima di esportare");
 
   figma.notify("Export in corso…");
 
-  const assets = new Map<string, any>();
-  const tree = await serializeNode(node, assets);
+  // ✅ Garantiamo sempre i campi richiesti dall’API
+  const fileKey = safeString((figma as any).fileKey, "local");
+  const nodeId = safeString(node.id, "unknown-node");
+  const tree = await serializeNode(node);
   const preview = await exportPreviewPng(node);
 
-  // ⚠️ QUI rispettiamo ESATTAMENTE i campi richiesti dal backend:
-  // Required: meta.fileKey, meta.nodeId, tree
   const payload = {
     meta: {
-      fileKey: figma.fileKey || "local-file",
+      fileKey: fileKey,
+      nodeId: nodeId,
       fileName: await getFileNameSafe(),
-      pageName: figma.currentPage.name,
-      nodeId: node.id,
-      nodeName: node.name,
+      pageName: safeString(figma.currentPage && figma.currentPage.name, "Page"),
+      nodeName: safeString((node as any).name, "Node"),
       exportedAt: new Date().toISOString(),
     },
-    tree,
-    assets: Array.from(assets.values()),
-    preview,
+    tree: tree,
+    preview: preview,
   };
 
   try {
-    await postJson(`${apiBase}/figma/import`, apiKey, payload);
+    await postJson(apiBase + "/figma/import", apiKey, payload);
     figma.notify("✅ Inviato a /figma/import");
   } catch (e) {
-    figma.notify(`❌ ${String(e)}`);
+    figma.notify("❌ " + String(e));
   }
 };
