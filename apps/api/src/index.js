@@ -58,3 +58,29 @@ app.listen(port, () => {
   console.log(`API listening on port ${port}`);
 });
 
+
+// --- FIGMA IMPORT (MVP) ---
+app.post("/figma/import", (req, res) => {
+  // Protezione minima: chiave condivisa
+  const key = req.header("x-api-key");
+  const expected = process.env.FIGMA_INGEST_KEY;
+
+  if (!expected) {
+    return res.status(500).json({ ok: false, error: "FIGMA_INGEST_KEY not set" });
+  }
+  if (key !== expected) {
+    return res.status(401).json({ ok: false, error: "Unauthorized" });
+  }
+
+  // Payload atteso dal plugin (per ora libero)
+  const payload = req.body;
+
+  // MVP: non persistiamo ancora (Render free è ephemeral)
+  // Rispondiamo con un riepilogo per verificare integrazione
+  const summary = {
+    receivedAt: new Date().toISOString(),
+    keys: payload && typeof payload === "object" ? Object.keys(payload) : [],
+  };
+
+  return res.json({ ok: true, summary });
+});
