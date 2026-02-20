@@ -1,0 +1,53 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      body { font-family: system-ui; margin: 16px; }
+      input { width: 100%; padding: 8px; margin: 6px 0 12px; }
+      button { padding: 10px 12px; width: 100%; }
+      .hint { color: #666; font-size: 12px; margin-top: 10px; line-height: 1.35; }
+      code { font-size: 12px; }
+    </style>
+  </head>
+  <body>
+    <h3>BTE Export (Serio)</h3>
+
+    <label>API Base URL</label>
+    <input id="apiBase" placeholder="https://brand-trained-engine.onrender.com" />
+
+    <label>API Key (FIGMA_INGEST_KEY)</label>
+    <input id="apiKey" placeholder="bte_figma_ingest_..." />
+
+    <button id="send">Export Selection</button>
+
+    <div class="hint">
+      Seleziona un <b>FRAME</b> (consigliato) o un nodo e clicca Export.<br/>
+      Invia: tree + assets (SVG/immagini) + preview PNG.
+    </div>
+
+    <script>
+      const apiBase = document.getElementById('apiBase');
+      const apiKey = document.getElementById('apiKey');
+      const send = document.getElementById('send');
+
+      // carica valori salvati
+      window.onmessage = (event) => {
+        const msg = event.data.pluginMessage;
+        if (!msg) return;
+        if (msg.type === 'INIT') {
+          apiBase.value = msg.apiBase || '';
+          apiKey.value = msg.apiKey || '';
+        }
+      };
+
+      send.onclick = () => {
+        parent.postMessage({ pluginMessage: {
+          type: 'EXPORT',
+          apiBase: apiBase.value.trim(),
+          apiKey: apiKey.value.trim()
+        }}, '*');
+      };
+    </script>
+  </body>
+</html>
