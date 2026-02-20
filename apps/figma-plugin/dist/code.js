@@ -1,5 +1,25 @@
 "use strict";
 (() => {
+  var __defProp = Object.defineProperty;
+  var __defProps = Object.defineProperties;
+  var __getOwnPropDescs = Object.getOwnPropertyDescriptors;
+  var __getOwnPropSymbols = Object.getOwnPropertySymbols;
+  var __hasOwnProp = Object.prototype.hasOwnProperty;
+  var __propIsEnum = Object.prototype.propertyIsEnumerable;
+  var __defNormalProp = (obj, key, value) => key in obj ? __defProp(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
+  var __spreadValues = (a, b) => {
+    for (var prop in b || (b = {}))
+      if (__hasOwnProp.call(b, prop))
+        __defNormalProp(a, prop, b[prop]);
+    if (__getOwnPropSymbols)
+      for (var prop of __getOwnPropSymbols(b)) {
+        if (__propIsEnum.call(b, prop))
+          __defNormalProp(a, prop, b[prop]);
+      }
+    return a;
+  };
+  var __spreadProps = (a, b) => __defProps(a, __getOwnPropDescs(b));
+
   // src/code.ts
   figma.showUI(__html__, { width: 360, height: 310 });
   async function getFileNameSafe() {
@@ -12,6 +32,7 @@
     return `#${r}${g}${b}`;
   }
   function serializePaint(p) {
+    var _a;
     if (p.type === "SOLID") {
       return {
         type: "SOLID",
@@ -27,11 +48,11 @@
         visible: p.visible !== false,
         opacity: p.opacity || 1,
         blendMode: p.blendMode || "NORMAL",
-        gradientStops: p.gradientStops?.map((s) => ({
+        gradientStops: ((_a = p.gradientStops) == null ? void 0 : _a.map((s) => ({
           position: s.position,
           color: colorToHex(s.color),
           opacity: s.color.a || 1
-        })) || [],
+        }))) || [],
         gradientTransform: p.gradientTransform || null
       };
     }
@@ -50,12 +71,13 @@
     return { type: p.type };
   }
   function serializeEffect(e) {
+    var _a;
     return {
       type: e.type,
       visible: e.visible !== false,
       radius: "radius" in e ? e.radius : void 0,
       color: "color" in e ? colorToHex(e.color) : void 0,
-      opacity: "color" in e ? e.color?.a || 1 : void 0,
+      opacity: "color" in e ? ((_a = e.color) == null ? void 0 : _a.a) || 1 : void 0,
       offset: "offset" in e ? e.offset : void 0,
       spread: "spread" in e ? e.spread : void 0,
       blendMode: "blendMode" in e ? e.blendMode : void 0
@@ -168,18 +190,18 @@
     const base = commonNodeProps(node);
     await collectImageAssetsFromPaints(node, assets);
     if (node.type === "TEXT") {
-      return { ...base, ...textProps(node) };
+      return __spreadValues(__spreadValues({}, base), textProps(node));
     }
     const svg = await exportSvgIfVectorLike(node);
     if (svg) {
-      return { ...base, svg };
+      return __spreadProps(__spreadValues({}, base), { svg });
     }
     if ("children" in node) {
       const kids = [];
       for (const child of node.children) {
         kids.push(await serializeNode(child, assets));
       }
-      return { ...base, children: kids };
+      return __spreadProps(__spreadValues({}, base), { children: kids });
     }
     return base;
   }
