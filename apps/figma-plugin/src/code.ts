@@ -42,9 +42,9 @@ function serializePaint(p: Paint): any {
     return {
       type: "SOLID",
       color: colorToHex(p.color),
-      opacity: p.opacity ?? 1,
+      opacity: p.opacity || 1,
       visible: p.visible !== false,
-      blendMode: p.blendMode ?? "NORMAL"
+      blendMode: p.blendMode || "NORMAL"
     };
   }
 
@@ -52,14 +52,14 @@ function serializePaint(p: Paint): any {
     return {
       type: p.type,
       visible: p.visible !== false,
-      opacity: p.opacity ?? 1,
-      blendMode: p.blendMode ?? "NORMAL",
+      opacity: p.opacity || 1,
+      blendMode: p.blendMode || "NORMAL",
       gradientStops: p.gradientStops?.map(s => ({
         position: s.position,
         color: colorToHex(s.color),
-        opacity: s.color.a ?? 1
-      })) ?? [],
-      gradientTransform: p.gradientTransform ?? null
+        opacity: s.color.a || 1
+      })) || [],
+      gradientTransform: p.gradientTransform || null
     };
   }
 
@@ -67,12 +67,12 @@ function serializePaint(p: Paint): any {
     return {
       type: "IMAGE",
       visible: p.visible !== false,
-      opacity: p.opacity ?? 1,
-      blendMode: p.blendMode ?? "NORMAL",
+      opacity: p.opacity || 1,
+      blendMode: p.blendMode || "NORMAL",
       scaleMode: p.scaleMode,
-      imageHash: p.imageHash ?? null,
-      rotation: (p as ImagePaint).rotation ?? 0,
-      filters: (p as ImagePaint).filters ?? null
+      imageHash: p.imageHash || null,
+      rotation: (p as ImagePaint).rotation || 0,
+      filters: (p as ImagePaint).filters || null
     };
   }
 
@@ -85,7 +85,7 @@ function serializeEffect(e: Effect): any {
     visible: e.visible !== false,
     radius: "radius" in e ? (e as any).radius : undefined,
     color: "color" in e ? colorToHex((e as any).color) : undefined,
-    opacity: "color" in e ? ((e as any).color?.a ?? 1) : undefined,
+    opacity: "color" in e ? ((e as any).color?.a || 1) : undefined,
     offset: "offset" in e ? (e as any).offset : undefined,
     spread: "spread" in e ? (e as any).spread : undefined,
     blendMode: "blendMode" in e ? (e as any).blendMode : undefined

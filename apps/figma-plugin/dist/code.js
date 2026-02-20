@@ -16,35 +16,35 @@
       return {
         type: "SOLID",
         color: colorToHex(p.color),
-        opacity: p.opacity ?? 1,
+        opacity: p.opacity || 1,
         visible: p.visible !== false,
-        blendMode: p.blendMode ?? "NORMAL"
+        blendMode: p.blendMode || "NORMAL"
       };
     }
     if (p.type === "GRADIENT_LINEAR" || p.type === "GRADIENT_RADIAL" || p.type === "GRADIENT_ANGULAR" || p.type === "GRADIENT_DIAMOND") {
       return {
         type: p.type,
         visible: p.visible !== false,
-        opacity: p.opacity ?? 1,
-        blendMode: p.blendMode ?? "NORMAL",
+        opacity: p.opacity || 1,
+        blendMode: p.blendMode || "NORMAL",
         gradientStops: p.gradientStops?.map((s) => ({
           position: s.position,
           color: colorToHex(s.color),
-          opacity: s.color.a ?? 1
-        })) ?? [],
-        gradientTransform: p.gradientTransform ?? null
+          opacity: s.color.a || 1
+        })) || [],
+        gradientTransform: p.gradientTransform || null
       };
     }
     if (p.type === "IMAGE") {
       return {
         type: "IMAGE",
         visible: p.visible !== false,
-        opacity: p.opacity ?? 1,
-        blendMode: p.blendMode ?? "NORMAL",
+        opacity: p.opacity || 1,
+        blendMode: p.blendMode || "NORMAL",
         scaleMode: p.scaleMode,
-        imageHash: p.imageHash ?? null,
-        rotation: p.rotation ?? 0,
-        filters: p.filters ?? null
+        imageHash: p.imageHash || null,
+        rotation: p.rotation || 0,
+        filters: p.filters || null
       };
     }
     return { type: p.type };
@@ -55,7 +55,7 @@
       visible: e.visible !== false,
       radius: "radius" in e ? e.radius : void 0,
       color: "color" in e ? colorToHex(e.color) : void 0,
-      opacity: "color" in e ? e.color?.a ?? 1 : void 0,
+      opacity: "color" in e ? e.color?.a || 1 : void 0,
       offset: "offset" in e ? e.offset : void 0,
       spread: "spread" in e ? e.spread : void 0,
       blendMode: "blendMode" in e ? e.blendMode : void 0
