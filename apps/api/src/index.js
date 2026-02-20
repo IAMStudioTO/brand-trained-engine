@@ -2,85 +2,81 @@ import express from "express";
 
 const app = express();
 
-// CORS manuale per permettere richieste dal browser (Vercel)
+// CORS manuale (per chiamate da browser/Vercel)
 app.use((req, res, next) => {
   res.header("Access-Control-Allow-Origin", "*");
   res.header("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
-  res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
-
-  // Preflight
+  res.header("Access-Control-Allow-Headers", "Content-Type, Authorization, x-api-key");
   if (req.method === "OPTIONS") return res.sendStatus(204);
   next();
 });
 
-app.use(express.json());
+app.use(express.json({ limit: "25mb" })); // payload grandi (tree + asset base64)
+
+// --- In-memory store (MVP) ---
+const designs = []; // array di pacchetti importati
 
 app.get("/health", (req, res) => {
   res.json({ ok: true });
 });
 
 /**
- * MVP: Genera 4 varianti 1:1 (solo JSON).
- * Input: { topic: string, objective?: string }
+ * POST /figma/import
+ * Riceve un Design Package:
+ * - meta (fileKey, page, nodeId, nodeName, createdAt...)
+ * - tree (node tree JSON con props/stili)
+ * - assets (svg/png/jpg) come base64 o URL
+ * - preview (png) opzionale
  */
-app.post("/generate", (req, res) => {
-  const topic = String(req.body?.topic ?? "").trim();
-  const objective = String(req.body?.objective ?? "").trim();
+app.post("/figma/import", (req, res) => {
+  const apiKey = req.header("x-api-key");
+  const expected = process.env.FIGMA_INGEST_KEY;
 
-  if (!topic) {
-    return res.status(400).json({ error: "Missing 'topic'" });
+  if (!expected) {
+    return res.status(500).json({ ok: false, error: "Missing FIGMA_INGEST_KEY on server" });
+  }
+  if (!apiKey || apiKey !== expected) {
+    return res.status(401).json({ ok: false, error: "Unauthorized" });
   }
 
-  // Placeholder: 4 layout ids + headline fake + immagine placeholder
-  const variants = [1, 2, 3, 4].map((n) => ({
-    id: `v${n}`,
-    format: "1:1",
-    layoutId: `L${n}`,
-    paletteId: "P1",
-    headline: `${topic} — Variante ${n}`,
-    subhead: objective ? objective : "",
-    image: {
-      type: "placeholder",
-      // per ora usiamo la stessa immagine placeholder (puoi cambiarla dopo)
-      url: "https://placehold.co/1080x1080/png?text=Brand-Trained+Engine",
-    },
-  }));
+  const pkg = req.body;
 
+  // Validazione minima (per ora)
+  if (!pkg?.meta?.fileKey || !pkg?.meta?.nodeId || !pkg?.tree) {
+    return res.status(400).json({
+      ok: false,
+      error: "Invalid payload. Required: meta.fileKey, meta.nodeId, tree"
+    });
+  }
+
+  designs.push({
+    receivedAt: new Date().toISOString(),
+    ...pkg
+  });
+
+  return res.json({
+    ok: true,
+    stored: designs.length,
+    id: designs.length - 1
+  });
+});
+
+// opzionale: lista per debug (da togliere dopo)
+app.get("/figma/designs", (req, res) => {
   res.json({
     ok: true,
-    input: { topic, objective },
-    variants,
+    count: designs.length,
+    items: designs.map((d, i) => ({
+      id: i,
+      receivedAt: d.receivedAt,
+      fileKey: d.meta?.fileKey,
+      nodeId: d.meta?.nodeId,
+      nodeName: d.meta?.nodeName
+    }))
   });
 });
 
 const port = process.env.PORT || 3001;
 app.listen(port, () => {
   console.log(`API listening on port ${port}`);
-});
-
-
-// --- FIGMA IMPORT (MVP) ---
-app.post("/figma/import", (req, res) => {
-  // Protezione minima: chiave condivisa
-  const key = req.header("x-api-key");
-  const expected = process.env.FIGMA_INGEST_KEY;
-
-  if (!expected) {
-    return res.status(500).json({ ok: false, error: "FIGMA_INGEST_KEY not set" });
-  }
-  if (key !== expected) {
-    return res.status(401).json({ ok: false, error: "Unauthorized" });
-  }
-
-  // Payload atteso dal plugin (per ora libero)
-  const payload = req.body;
-
-  // MVP: non persistiamo ancora (Render free è ephemeral)
-  // Rispondiamo con un riepilogo per verificare integrazione
-  const summary = {
-    receivedAt: new Date().toISOString(),
-    keys: payload && typeof payload === "object" ? Object.keys(payload) : [],
-  };
-
-  return res.json({ ok: true, summary });
 });
